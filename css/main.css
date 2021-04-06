@@ -63,4 +63,8 @@ body{
   .input{
     width: 80%;
   }
+
+  #submit input{
+    background: #9a9cee;
+  }
 }
