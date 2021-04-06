@@ -58,6 +58,7 @@ body{
 @media screen and (max-width: 600px) {
   #form {
     width: 100%;
+    background-color: #03c603;
   }
 
   .input{
