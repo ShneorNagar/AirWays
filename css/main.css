@@ -54,3 +54,13 @@ body{
 .notAllowToFly{
   color: red;
 }
+
+@media screen and (max-width: 600px) {
+  #form {
+    width: 100%;
+  }
+
+  .input{
+    width: 80%;
+  }
+}
