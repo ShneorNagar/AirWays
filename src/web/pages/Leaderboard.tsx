@@ -1,9 +1,10 @@
 import { useEffect, useState } from "react";
 import { api, errorMessage, type Leaderboard as LB } from "../api";
 import { useMe } from "../App";
-import { S } from "../strings";
+import { useT } from "../i18n";
 
 export default function Leaderboard() {
+  const S = useT();
   const { me } = useMe();
   const [data, setData] = useState<LB | null>(null);
   const [season, setSeason] = useState<number | undefined>(undefined);
@@ -13,7 +14,7 @@ export default function Leaderboard() {
     api
       .leaderboard(season)
       .then(setData)
-      .catch((e) => setError(errorMessage(e, S.common.error)));
+      .catch((e) => setError(errorMessage(e, S)));
   }, [season]);
 
   return (
@@ -26,7 +27,7 @@ export default function Leaderboard() {
             <select value={data.season?.id ?? ""} onChange={(e) => setSeason(Number(e.target.value))}>
               {data.seasons.map((s) => (
                 <option key={s.id} value={s.id}>
-                  {s.name} ({s.status === "active" ? S.leaderboard.active : S.leaderboard.closed})
+                  {S.seasonName(s.name)} ({s.status === "active" ? S.leaderboard.active : S.leaderboard.closed})
                 </option>
               ))}
             </select>
@@ -56,7 +57,7 @@ export default function Leaderboard() {
                   <td>{r.rank}</td>
                   <td>
                     {r.is_bot && <span aria-label="bot">🤖 </span>}
-                    {r.display_name}
+                    <bdi>{r.display_name}</bdi>
                   </td>
                   <td dir="ltr">{r.elo.toFixed(1)}</td>
                   <td dir="ltr">

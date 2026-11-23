@@ -2,9 +2,11 @@ import type { ReactNode } from "react";
 import { Link, NavLink, useNavigate } from "react-router-dom";
 import { api } from "../api";
 import { useMe } from "../App";
-import { S } from "../strings";
+import { LanguageToggle } from "../i18n";
+import { useT } from "../i18n";
 
 export default function Layout({ children }: { children: ReactNode }) {
+  const S = useT();
   const { me, refresh } = useMe();
   const navigate = useNavigate();
   const user = me?.user ?? null;
@@ -32,6 +34,7 @@ export default function Layout({ children }: { children: ReactNode }) {
           <NavLink to="/leaderboard">{S.nav.leaderboard}</NavLink>
           {user && <NavLink to="/dashboard">{S.nav.dashboard}</NavLink>}
           {user?.is_admin && <NavLink to="/admin">{S.nav.admin}</NavLink>}
+          <LanguageToggle />
           {user ? (
             <>
               <span className="balance-chip" title={S.dashboard.balance}>
@@ -52,6 +55,7 @@ export default function Layout({ children }: { children: ReactNode }) {
 }
 
 export function LoginRequired() {
+  const S = useT();
   return (
     <div className="card center">
       <p>{S.errors.needLogin}</p>
@@ -63,5 +67,6 @@ export function LoginRequired() {
 }
 
 export function StatusBadge({ status }: { status: string }) {
+  const S = useT();
   return <span className={`badge status-${status}`}>{S.status[status] ?? status}</span>;
 }

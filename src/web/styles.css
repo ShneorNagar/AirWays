@@ -51,6 +51,11 @@ p { margin: 0 0 8px; }
 .balance-chip { background: var(--card-2); border: 1px solid var(--border); border-radius: 999px; padding: 2px 10px; font-size: 0.85rem; }
 .link-btn { background: none; border: none; color: var(--muted); font: inherit; cursor: pointer; padding: 4px 2px; }
 .link-btn:hover { color: var(--text); }
+.lang-btn {
+  background: var(--card-2); border: 1px solid var(--border); border-radius: 999px; color: var(--text);
+  font: inherit; font-size: 0.85rem; padding: 2px 10px; cursor: pointer;
+}
+.lang-btn:hover { border-color: var(--primary); }
 
 .stack > * + * { margin-top: var(--gap); }
 .card { background: var(--card); border: 1px solid var(--border); border-radius: var(--radius); padding: 16px; }

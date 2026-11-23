@@ -8,7 +8,7 @@ import Home from "./pages/Home";
 import Leaderboard from "./pages/Leaderboard";
 import MatchReplay from "./pages/MatchReplay";
 import Submit from "./pages/Submit";
-import { S } from "./strings";
+import { useT } from "./i18n";
 
 interface MeState {
   me: Me | null;
@@ -20,6 +20,7 @@ const MeContext = createContext<MeState>({ me: null, loading: true, refresh: asy
 export const useMe = () => useContext(MeContext);
 
 export default function App() {
+  const S = useT();
   const [me, setMe] = useState<Me | null>(null);
   const [loading, setLoading] = useState(true);
   const refresh = useCallback(async () => {

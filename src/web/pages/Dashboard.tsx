@@ -3,11 +3,12 @@ import { Link } from "react-router-dom";
 import { api, errorMessage, type MatchListItem, type Version } from "../api";
 import { useMe } from "../App";
 import { LoginRequired, StatusBadge } from "../components/Layout";
-import { S } from "../strings";
+import { useT } from "../i18n";
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 
 export default function Dashboard() {
+  const S = useT();
   const { me, loading, refresh } = useMe();
   const [versions, setVersions] = useState<Version[] | null>(null);
   const [matches, setMatches] = useState<MatchListItem[]>([]);
@@ -24,7 +25,7 @@ export default function Dashboard() {
         setMatches(m.matches);
         setCursor(m.next_cursor);
       })
-      .catch((e) => setError(errorMessage(e, S.common.error)));
+      .catch((e) => setError(errorMessage(e, S)));
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [loggedIn]);
 
@@ -37,7 +38,7 @@ export default function Dashboard() {
       setMatches((prev) => [...prev, ...m.matches]);
       setCursor(m.next_cursor);
     } catch (e) {
-      setError(errorMessage(e, S.common.error));
+      setError(errorMessage(e, S));
     }
   }
 
@@ -60,7 +61,7 @@ export default function Dashboard() {
           <div className="stat-label">{S.dashboard.season}</div>
           {me!.season ? (
             <>
-              <div className="stat-value">{me!.season.name}</div>
+              <div className="stat-value">{S.seasonName(me!.season.name)}</div>
               <div className="muted small">{S.dashboard.daysLeft(daysLeft)}</div>
             </>
           ) : (
@@ -95,7 +96,7 @@ export default function Dashboard() {
               <li key={m.id}>
                 <Link to={`/match/${m.id}`} className="match-row">
                   <span className="match-opp">
-                    {S.dashboard.vs} {m.opponent_name}
+                    {S.dashboard.vs} <bdi>{m.opponent_name}</bdi>
                   </span>
                   <StatusBadge status={m.status} />
                   {m.result_for_me && <span className={`badge result-${m.result_for_me}`}>{S.result[m.result_for_me]}</span>}
@@ -106,7 +107,7 @@ export default function Dashboard() {
                       <span>{m.rounds_opp}</span>
                     </span>
                   )}
-                  <span className="match-date muted small">{new Date(m.created_at).toLocaleDateString("he-IL")}</span>
+                  <span className="match-date muted small">{new Date(m.created_at).toLocaleDateString(S.locale)}</span>
                 </Link>
               </li>
             ))}

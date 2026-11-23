@@ -156,6 +156,7 @@ export const api = {
   },
 };
 
-export function errorMessage(err: unknown, fallback: string): string {
-  return err instanceof ApiError && err.message ? err.message : fallback;
+/** Localized message for an API error, from its error code (the server's text is Hebrew-only). */
+export function errorMessage(err: unknown, S: { apiErrors: Record<string, string>; common: { error: string } }): string {
+  return (err instanceof ApiError && S.apiErrors[err.code]) || S.common.error;
 }

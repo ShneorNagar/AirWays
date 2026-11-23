@@ -116,6 +116,12 @@ retried by the queue; after 5 retries the message lands in `matches-dlq`, which 
   (a match step uses ≤ ~16 subrequests; waiting on the LLM does not count as CPU).
 - Upgrade to Workers Paid when the queue limit becomes the bottleneck.
 
+## Languages
+
+The UI supports Hebrew (default, RTL) and English (LTR), switched with the 🌐 button in the header.
+The choice is saved in the browser. All UI strings live in `src/web/strings.ts` (one dictionary per
+language); API errors are translated on the client from their error `code`.
+
 ### Security notes
 
 - API: same-origin + JSON-only POSTs (CSRF), HttpOnly/Secure/SameSite=Lax session cookie
@@ -129,7 +135,7 @@ retried by the queue; after 5 retries the message lands in `matches-dlq`, which 
 ```
 src/engine/   pure game logic (no Cloudflare imports) — runs in Node and Workers
 src/worker/   Cloudflare Worker: Hono API, queue consumer, cron, D1 access
-src/web/      React 18 SPA (Vite, react-router, plain CSS, Hebrew RTL)
+src/web/      React 18 SPA (Vite, react-router, plain CSS); Hebrew (RTL, default) and English (LTR)
 migrations/   D1 SQL migrations
 data/         Hebrew noun list for secrets
 scripts/      validate-words.ts, run-league.ts

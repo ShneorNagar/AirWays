@@ -1,8 +1,9 @@
 import { useState, type FormEvent } from "react";
 import { api, errorMessage, type Turn } from "../api";
-import { S } from "../strings";
+import { useT } from "../i18n";
 
 export default function TurnCard({ turn, canAppeal }: { turn: Turn; canAppeal: boolean }) {
+  const S = useT();
   const cracked = turn.guess_correct === true;
   return (
     <article className={`turn ${cracked ? "turn-cracked" : ""}`}>
@@ -14,14 +15,14 @@ export default function TurnCard({ turn, canAppeal }: { turn: Turn; canAppeal: b
         <span className={`badge task-${turn.task}`}>{S.replay.tasks[turn.task]}</span>
         {turn.guess !== null && (
           <span className={`chip guess ${turn.guess_correct === true ? "ok" : turn.guess_correct === false ? "bad" : "na"}`}>
-            {S.replay.guess}: {turn.guess}{" "}
+            {S.replay.guess}: <bdi>{turn.guess}</bdi>{" "}
             {turn.guess_correct === true ? "✅" : turn.guess_correct === false ? "❌" : `(${S.replay.noGuessesLeft})`}
           </span>
         )}
       </header>
       <div className="turn-block">
         <div className="turn-label">{S.replay.content}</div>
-        <div className="text">{turn.content || "—"}</div>
+        <div className="text" dir="auto">{turn.content || "—"}</div>
       </div>
       {cracked ? (
         <div className="cracked-banner">{S.replay.cracked}</div>
@@ -29,7 +30,7 @@ export default function TurnCard({ turn, canAppeal }: { turn: Turn; canAppeal: b
         <>
           <div className="turn-block">
             <div className="turn-label">{S.replay.reply}</div>
-            <div className="text reply">{turn.reply || "—"}</div>
+            <div className="text reply" dir="auto">{turn.reply || "—"}</div>
           </div>
           {turn.complied !== null && (
             <div className={`verdict ${turn.complied ? "ok" : "strike"}`}>
@@ -44,6 +45,7 @@ export default function TurnCard({ turn, canAppeal }: { turn: Turn; canAppeal: b
 }
 
 function AppealForm({ turnId }: { turnId: string }) {
+  const S = useT();
   const [open, setOpen] = useState(false);
   const [reason, setReason] = useState("");
   const [state, setState] = useState<"idle" | "sending" | "sent">("idle");
@@ -58,7 +60,7 @@ function AppealForm({ turnId }: { turnId: string }) {
       await api.appeal(turnId, reason);
       setState("sent");
     } catch (err) {
-      setError(errorMessage(err, S.common.error));
+      setError(errorMessage(err, S));
       setState("idle");
     }
   }

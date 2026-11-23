@@ -3,12 +3,13 @@ import { Link } from "react-router-dom";
 import { ApiError, api, errorMessage } from "../api";
 import { useMe } from "../App";
 import { LoginRequired } from "../components/Layout";
-import { S } from "../strings";
+import { useT } from "../i18n";
 
 const MAX = 1500;
 type Field = "defense_prompt" | "attack_prompt";
 
 export default function Submit() {
+  const S = useT();
   const { me, loading, refresh } = useMe();
   const [defense, setDefense] = useState("");
   const [attack, setAttack] = useState("");
@@ -47,7 +48,7 @@ export default function Submit() {
       if (err instanceof ApiError && err.code === "validation") {
         setFieldError({ field: err.data.field as Field, code: String(err.data.code) });
       } else {
-        setError(errorMessage(err, S.common.error));
+        setError(errorMessage(err, S));
       }
     } finally {
       setSending(false);
@@ -106,6 +107,7 @@ function PromptBox(props: {
   invalid: boolean;
   children?: React.ReactNode;
 }) {
+  const S = useT();
   const len = props.value.trim().length;
   return (
     <div className="card field">

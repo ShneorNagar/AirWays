@@ -1,7 +1,8 @@
 import type { Round } from "../api";
-import { S } from "../strings";
+import { useT } from "../i18n";
 
 export default function RoundTabs(props: { rounds: Round[]; selected: number; onSelect: (n: number) => void; winnerLabel: (r: Round) => string }) {
+  const S = useT();
   return (
     <div className="tabs" role="tablist">
       {props.rounds.map((r) => (
@@ -13,7 +14,7 @@ export default function RoundTabs(props: { rounds: Round[]; selected: number; on
           onClick={() => props.onSelect(r.round_no)}
         >
           {S.replay.round(r.round_no)}
-          {r.status === "completed" && <small> · {props.winnerLabel(r)}</small>}
+          {r.status === "completed" && <small> · <bdi>{props.winnerLabel(r)}</bdi></small>}
         </button>
       ))}
     </div>

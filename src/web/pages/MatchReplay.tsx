@@ -5,13 +5,14 @@ import { useMe } from "../App";
 import { LoginRequired, StatusBadge } from "../components/Layout";
 import RoundTabs from "../components/RoundTabs";
 import TurnCard from "../components/TurnCard";
-import { S } from "../strings";
+import { useT } from "../i18n";
 
 const POLL_MS = 5000;
 type Side = "a" | "b";
 const other = (s: Side): Side => (s === "a" ? "b" : "a");
 
 export default function MatchReplay() {
+  const S = useT();
   const { id = "" } = useParams();
   const { me, loading } = useMe();
   const [data, setData] = useState<Replay | null>(null);
@@ -33,7 +34,7 @@ export default function MatchReplay() {
         if (d.status === "pending" || d.status === "running") timer = setTimeout(load, POLL_MS);
       } catch (e) {
         if (cancelled) return;
-        setError(e instanceof ApiError && e.status === 404 ? S.errors.notFound : errorMessage(e, S.common.error));
+        setError(e instanceof ApiError && e.status === 404 ? S.errors.notFound : errorMessage(e, S));
       }
     };
     void load();
@@ -70,14 +71,14 @@ export default function MatchReplay() {
     <div className="stack">
       <header className="card match-head">
         <div className="players">
-          <span className={`player ${data.result === "a" ? "winner" : ""}`}>{names.a}</span>
+          <span className={`player ${data.result === "a" ? "winner" : ""}`}><bdi>{names.a}</bdi></span>
           {/* Flex follows RTL: A's score sits next to A's name (right), B's next to B's. */}
           <span className="score big score-pair">
             <span>{data.rounds_a}</span>
             <span aria-hidden>–</span>
             <span>{data.rounds_b}</span>
           </span>
-          <span className={`player ${data.result === "b" ? "winner" : ""}`}>{names.b}</span>
+          <span className={`player ${data.result === "b" ? "winner" : ""}`}><bdi>{names.b}</bdi></span>
         </div>
         <div className="row-center">
           <StatusBadge status={data.status} />
@@ -104,14 +105,14 @@ export default function MatchReplay() {
           <div className="card round-info">
             {current.status === "completed" && (
               <p>
-                <strong>{S.replay.roundWinner}:</strong> {winnerLabel(current)}
+                <strong>{S.replay.roundWinner}:</strong> <bdi>{winnerLabel(current)}</bdi>
                 {current.end_reason && ` (${S.replay.endReasons[current.end_reason] ?? current.end_reason}, ${S.replay.turn(current.end_turn ?? 0)})`}
               </p>
             )}
             {current.secrets ? (
               <p>
-                <strong>{S.replay.secretOf(names.a)}:</strong> <span className="secret">{current.secrets.a}</span> ·{" "}
-                <strong>{S.replay.secretOf(names.b)}:</strong> <span className="secret">{current.secrets.b}</span>
+                <strong>{S.replay.secretOf(names.a)}:</strong> <bdi className="secret">{current.secrets.a}</bdi> ·{" "}
+                <strong>{S.replay.secretOf(names.b)}:</strong> <bdi className="secret">{current.secrets.b}</bdi>
               </p>
             ) : (
               <p className="muted small">{S.replay.secretsHidden}</p>
@@ -145,6 +146,7 @@ export default function MatchReplay() {
 }
 
 function ChannelColumn(props: { title: string; channel: Channel | undefined; hiddenOnMobile: boolean; canAppeal: boolean }) {
+  const S = useT();
   const ch = props.channel;
   return (
     <div className={`column ${props.hiddenOnMobile ? "hide-mobile" : ""}`}>

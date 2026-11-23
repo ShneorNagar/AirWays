@@ -3,9 +3,10 @@ import { Link } from "react-router-dom";
 import { api, errorMessage, type AdminAppeal, type AdminStats } from "../api";
 import { useMe } from "../App";
 import { LoginRequired } from "../components/Layout";
-import { S } from "../strings";
+import { useT } from "../i18n";
 
 export default function Admin() {
+  const S = useT();
   const { me, loading } = useMe();
   const [stats, setStats] = useState<AdminStats | null>(null);
   const [appeals, setAppeals] = useState<AdminAppeal[] | null>(null);
@@ -18,7 +19,7 @@ export default function Admin() {
         setStats(s);
         setAppeals(a.appeals);
       })
-      .catch((e) => setError(errorMessage(e, S.common.error)));
+      .catch((e) => setError(errorMessage(e, S)));
   }, []);
 
   useEffect(() => {
@@ -93,6 +94,7 @@ export default function Admin() {
 }
 
 function Stat({ label, value, highlight }: { label: string; value: string | number; highlight?: boolean }) {
+  const S = useT();
   return (
     <div className={`stat-item ${highlight ? "highlight" : ""}`}>
       <dt>{label}</dt>
@@ -102,6 +104,7 @@ function Stat({ label, value, highlight }: { label: string; value: string | numb
 }
 
 function AppealItem({ appeal, onDone }: { appeal: AdminAppeal; onDone: () => void }) {
+  const S = useT();
   const [note, setNote] = useState("");
   const [error, setError] = useState<string | null>(null);
   async function resolve(status: "accepted" | "rejected") {
@@ -109,22 +112,22 @@ function AppealItem({ appeal, onDone }: { appeal: AdminAppeal; onDone: () => voi
       await api.admin.resolveAppeal(appeal.id, status, note);
       onDone();
     } catch (e) {
-      setError(errorMessage(e, S.common.error));
+      setError(errorMessage(e, S));
     }
   }
   return (
     <div className="appeal-item">
       <p className="small muted">
-        {S.admin.by} {appeal.user_name} · {new Date(appeal.created_at).toLocaleString("he-IL")} ·{" "}
+        {S.admin.by} <bdi>{appeal.user_name}</bdi> · {new Date(appeal.created_at).toLocaleString(S.locale)} ·{" "}
         <Link to={`/match/${appeal.match_id}`}>{S.admin.openMatch}</Link>
       </p>
-      <p className="text">{appeal.reason}</p>
+      <p className="text" dir="auto">{appeal.reason}</p>
       {appeal.turn && (
         <div className="appeal-turn">
           <div className="turn-label">{S.replay.content}</div>
-          <div className="text">{appeal.turn.content}</div>
+          <div className="text" dir="auto">{appeal.turn.content}</div>
           <div className="turn-label">{S.replay.reply}</div>
-          <div className="text reply">{appeal.turn.reply}</div>
+          <div className="text reply" dir="auto">{appeal.turn.reply}</div>
           <div className="verdict strike">
             {S.replay.strike} — {appeal.turn.reason}
           </div>
@@ -145,6 +148,7 @@ function AppealItem({ appeal, onDone }: { appeal: AdminAppeal; onDone: () => voi
 }
 
 function GrantForm() {
+  const S = useT();
   const [userId, setUserId] = useState("");
   const [amount, setAmount] = useState("");
   const [note, setNote] = useState("");
@@ -157,7 +161,7 @@ function GrantForm() {
       setMsg(S.admin.grantDone);
       setAmount("");
     } catch (err) {
-      setMsg(errorMessage(err, S.common.error));
+      setMsg(errorMessage(err, S));
     }
   }
   return (
@@ -181,6 +185,7 @@ function ToggleForm(props: {
   offLabel: string;
   action: (id: string, on: boolean) => Promise<unknown>;
 }) {
+  const S = useT();
   const [id, setId] = useState("");
   const [msg, setMsg] = useState<string | null>(null);
   async function run(on: boolean) {
@@ -189,7 +194,7 @@ function ToggleForm(props: {
       await props.action(id.trim(), on);
       setMsg(S.admin.done);
     } catch (err) {
-      setMsg(errorMessage(err, S.common.error));
+      setMsg(errorMessage(err, S));
     }
   }
   return (

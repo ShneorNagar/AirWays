@@ -1,8 +1,9 @@
 import { Link } from "react-router-dom";
 import { useMe } from "../App";
-import { S } from "../strings";
+import { useT } from "../i18n";
 
 export default function Home() {
+  const S = useT();
   const { me } = useMe();
   return (
     <div className="stack">
