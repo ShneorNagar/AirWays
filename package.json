@@ -1,17 +1,22 @@
 {
-  "name": " ",
-  "version": "0.0.1",
-  "description": "",
-  "keywords": "",
-  "license": "",
-  "author": "",
+  "name": "agent-wars",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
   "scripts": {
-    "build": "parcel build index.html",
-    "dev": "parcel index.html --open",
-    "start": "npm run build && npm run dev",
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "test": "vitest run",
+    "typecheck": "tsc --noEmit",
+    "validate-words": "tsx scripts/validate-words.ts",
+    "league": "tsx scripts/run-league.ts league/submissions.csv"
   },
   "devDependencies": {
-    "parcel-bundler": "^1.12.4"
-  }
+    "@types/node": "^22.0.0",
+    "tsx": "^4.23.15",
+    "typescript": "^5.9.3",
+    "vitest": "^5.1.1"
+  },
+  "dependencies": {
+    "csv-parse": "^7.0.3"
+  },
+  "packageManager": "pnpm@10.28.0"
 }
