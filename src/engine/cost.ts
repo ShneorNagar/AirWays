@@ -7,6 +7,7 @@ import {
   MARGIN,
   MAX_INPUT_TOKENS_JUDGE_CALL,
   MAX_INPUT_TOKENS_PLAYER_CALL,
+  MATCH_PRICE_CREDITS,
   MAX_TURNS,
   PLAYER_MODEL,
   PRICE_USD_PER_MTOK,
@@ -73,7 +74,12 @@ export function computeHoldCredits(prices: PriceTable = PRICE_USD_PER_MTOK): num
   return usdMicroToCreditsWithMargin(computeMaxMatchUsdMicro(prices));
 }
 
-/** Spec 8.3: actual charge for a finished match. */
-export function computeChargeCredits(actualUsdMicro: number): number {
-  return usdMicroToCreditsWithMargin(actualUsdMicro);
+/**
+ * Charge for a finished match: actual cost + margin (spec 8.3), but never less than
+ * MATCH_PRICE_CREDITS (so cheap matches still earn something) and never more than the
+ * hold the player agreed to (so a player can never owe more than was reserved).
+ */
+export function computeChargeCredits(actualUsdMicro: number, holdCredits: number): number {
+  const costPlus = usdMicroToCreditsWithMargin(actualUsdMicro);
+  return Math.min(holdCredits, Math.max(MATCH_PRICE_CREDITS, costPlus));
 }

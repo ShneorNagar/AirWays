@@ -1,6 +1,6 @@
 import { env } from "cloudflare:workers";
 import { beforeEach, describe, expect, it } from "vitest";
-import { SUBMISSIONS_PER_DAY } from "../../src/engine/config";
+import { MATCH_PRICE_CREDITS, SIGNUP_BONUS_CREDITS, SUBMISSIONS_PER_DAY } from "../../src/engine/config";
 import { computeHoldCredits } from "../../src/engine/cost";
 import { runCron } from "../../src/worker/cron";
 import { VALID_ATTACK, VALID_DEFENSE, call, createUser, drain, installStrikeMock, ledger, resetDb, testEnv } from "./helpers";
@@ -14,10 +14,10 @@ describe("GET /api/me", () => {
     await runCron(e);
     const anon = (await (await call(e, "/api/me")).json()) as Record<string, unknown>;
     expect(anon).toMatchObject({ user: null, balance: 0, season: { name: "עונה 1" } });
-    expect(anon.est_credits_per_match).toBe(Math.ceil(computeHoldCredits() / 4));
+    expect(anon.est_credits_per_match).toBe(MATCH_PRICE_CREDITS);
     const u = await createUser({ name: "דנה" });
     const me = (await (await call(e, "/api/me", { cookie: u.cookie })).json()) as Record<string, unknown>;
-    expect(me).toMatchObject({ user: { id: u.id, display_name: "דנה", is_admin: false }, balance: 300 });
+    expect(me).toMatchObject({ user: { id: u.id, display_name: "דנה", is_admin: false }, balance: SIGNUP_BONUS_CREDITS });
   });
 
   it("an expired or unknown session is anonymous", async () => {
@@ -171,7 +171,7 @@ describe("appeals and admin", () => {
   async function playedMatch() {
     const { env: e, queue } = testEnv();
     await runCron(e);
-    const u = await createUser();
+    const u = await createUser({ credits: 1000 });
     await call(e, "/api/versions", { method: "POST", cookie: u.cookie, body: { defense_prompt: `WEAK ${VALID_DEFENSE}`, attack_prompt: VALID_ATTACK } });
     installStrikeMock();
     const m = await env.DB.prepare("SELECT id FROM matches WHERE user_a_id = ? AND user_b_id = 'bot-guard'").bind(u.id).first<{ id: string }>();

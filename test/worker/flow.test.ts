@@ -1,6 +1,6 @@
 import { env } from "cloudflare:workers";
 import { beforeEach, describe, expect, it } from "vitest";
-import { ELO_START } from "../../src/engine/config";
+import { ELO_START, SIGNUP_BONUS_CREDITS } from "../../src/engine/config";
 import { computeChargeCredits, computeHoldCredits } from "../../src/engine/cost";
 import { updateElo } from "../../src/engine/elo";
 import { ensureSeason, recoverStalledMatches, runCron, STALL_MS } from "../../src/worker/cron";
@@ -59,7 +59,7 @@ describe("full match through queue steps", () => {
   it("submit → cron → matches complete; ledger hold/release/charge; Elo updated", async () => {
     const { env: e, queue } = testEnv();
     await runCron(e);
-    const u = await createUser();
+    const u = await createUser({ credits: 1000 });
     const res = await call(e, "/api/versions", {
       method: "POST",
       cookie: u.cookie,
@@ -81,7 +81,7 @@ describe("full match through queue steps", () => {
       expect(m).toMatchObject({ status: "completed", result: "b", rounds_a: 0, rounds_b: 2, hold_credits: HOLD });
       const cost = await env.DB.prepare("SELECT SUM(cost_usd_micro) AS s, COUNT(*) AS n FROM llm_calls WHERE match_id = ?").bind(m.id).first<{ s: number; n: number }>();
       expect(m.cost_usd_micro).toBe(cost!.s);
-      expect(m.charged_credits).toBe(computeChargeCredits(cost!.s));
+      expect(m.charged_credits).toBe(computeChargeCredits(cost!.s, HOLD));
       // 2 rounds × 3 turns × 2 channels × 3 calls
       expect(cost!.n).toBe(36);
       const rounds = (await env.DB.prepare("SELECT * FROM rounds WHERE match_id = ? ORDER BY round_no").bind(m.id).all()).results;
@@ -99,7 +99,7 @@ describe("full match through queue steps", () => {
       expect(rows.find((x) => x.type === "match_charge")!.amount).toBe(-m.charged_credits);
     }
     const balance = l.reduce((s, x) => s + x.amount, 0);
-    expect(balance).toBe(300 - ms.reduce((s, m) => s + m.charged_credits, 0));
+    expect(balance).toBe(1000 - ms.reduce((s, m) => s + m.charged_credits, 0));
 
     // Elo: three losses vs 1000-rated bots, applied as sequential deltas.
     const rating = await env.DB.prepare("SELECT * FROM ratings WHERE user_id = ?").bind(u.id).first<{ elo: number; losses: number; matches: number }>();

@@ -116,6 +116,23 @@ retried by the queue; after 5 retries the message lands in `matches-dlq`, which 
   (a match step uses ≤ ~16 subrequests; waiting on the LLM does not count as CPU).
 - Upgrade to Workers Paid when the queue limit becomes the bottleneck.
 
+## Loss protection
+
+The game pays for every LLM call, so spending is capped in several independent layers:
+
+| Layer | What it does | Where |
+|---|---|---|
+| Provider spend limit | Hard monthly cap at Anthropic — **set this first** (console.anthropic.com → Settings → Limits). Use a dedicated API key. | Anthropic Console |
+| Kill switch | Admin page → *Pause everything*: no new submissions, no new matches. Running matches finish. | `settings` table |
+| Daily / monthly budget | A match starts only if spend so far + worst case of all running matches + its own worst case fits both budgets (defaults $2/day, $20/month, editable on the admin page). Blocked matches wait, they are not cancelled. | `src/worker/budget.ts` |
+| Per-match cost cap | A match that reaches its worst-case cost ends immediately (unfinished round = draw). | `src/worker/queue.ts` |
+| Minimum price | Each match costs at least `MATCH_PRICE_CREDITS` (10), so cheap matches still cover payment fees; never more than the hold. | `src/engine/cost.ts` |
+| Free credits | Signup bonus 100 credits, and at most `MAX_SIGNUP_BONUSES_PER_DAY` (20) bonuses per day. | `src/engine/config.ts` |
+| Per-user limits | 5 submissions/24h, holds reserve the worst case before a match starts. | spec |
+
+Worst case per match: about $0.30 (`computeMaxMatchUsdMicro`). Because running matches are reserved at their
+worst case, daily spend stays within the daily budget (plus at most one step's overshoot, a few cents).
+
 ## Languages
 
 The UI supports Hebrew (default, RTL) and English (LTR), switched with the 🌐 button in the header.

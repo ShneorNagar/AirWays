@@ -16,6 +16,7 @@ export const ERROR_MESSAGES = {
   conflict: "כבר הגשת ערעור על תור זה.",
   not_appealable: "לא ניתן לערער על תור זה.",
   oauth_failed: "ההתחברות עם Google נכשלה.",
+  paused: "המשחק מושהה זמנית. נסה שוב מאוחר יותר.",
   internal: "אירעה שגיאה. נסה שוב.",
 } as const;
 

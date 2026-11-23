@@ -1,6 +1,7 @@
 import { Hono } from "hono";
 import { deleteCookie, getCookie, setCookie } from "hono/cookie";
-import { SIGNUP_BONUS_CREDITS } from "../../engine/config";
+import { MAX_SIGNUP_BONUSES_PER_DAY, SIGNUP_BONUS_CREDITS } from "../../engine/config";
+import { utcDayStart } from "../budget";
 import {
   OAUTH_STATE_COOKIE,
   OAUTH_STATE_TTL_S,
@@ -92,9 +93,11 @@ app.get("/google/callback", async (c) => {
         .prepare(
           `INSERT INTO credit_ledger (id, user_id, amount, type, created_at)
            SELECT ?, ?, ?, 'signup_bonus', ? WHERE EXISTS (SELECT 1 FROM users WHERE id = ?)
-             AND NOT EXISTS (SELECT 1 FROM credit_ledger WHERE user_id = ? AND type = 'signup_bonus')`,
+             AND NOT EXISTS (SELECT 1 FROM credit_ledger WHERE user_id = ? AND type = 'signup_bonus')
+             -- Loss protection: daily cap on free credits handed out (account farming).
+             AND (SELECT COUNT(*) FROM credit_ledger WHERE type = 'signup_bonus' AND created_at >= ?) < ?`,
         )
-        .bind(newId(), id, SIGNUP_BONUS_CREDITS, ts, id, id),
+        .bind(newId(), id, SIGNUP_BONUS_CREDITS, ts, id, id, utcDayStart(ts), MAX_SIGNUP_BONUSES_PER_DAY),
     ]);
     user = await db.prepare("SELECT * FROM users WHERE google_sub = ?").bind(info.sub).first<UserRow>();
     if (!user) return apiError(c, 500, "internal");

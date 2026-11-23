@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState, type FormEvent } from "react";
 import { Link } from "react-router-dom";
-import { api, errorMessage, type AdminAppeal, type AdminStats } from "../api";
+import { api, errorMessage, type AdminAppeal, type AdminSettings, type AdminStats } from "../api";
 import { useMe } from "../App";
 import { LoginRequired } from "../components/Layout";
 import { useT } from "../i18n";
@@ -34,6 +34,8 @@ export default function Admin() {
     <div className="stack">
       <h1>{S.admin.title}</h1>
       {error && <p className="error">{error}</p>}
+
+      <ProtectionPanel />
 
       <section className="card">
         <h2>{S.admin.stats}</h2>
@@ -211,5 +213,84 @@ function ToggleForm(props: {
       </div>
       {msg && <p className="small">{msg}</p>}
     </div>
+  );
+}
+
+function ProtectionPanel() {
+  const S = useT();
+  const [st, setSt] = useState<AdminSettings | null>(null);
+  const [daily, setDaily] = useState("");
+  const [monthly, setMonthly] = useState("");
+  const [msg, setMsg] = useState<string | null>(null);
+
+  const load = useCallback(() => {
+    api.admin
+      .settings()
+      .then((s) => {
+        setSt(s);
+        setDaily(String(s.daily_budget_usd));
+        setMonthly(String(s.monthly_budget_usd));
+      })
+      .catch((e) => setMsg(errorMessage(e, S)));
+  }, [S]);
+  useEffect(load, [load]);
+
+  async function save(s: Parameters<typeof api.admin.saveSettings>[0]) {
+    setMsg(null);
+    try {
+      await api.admin.saveSettings(s);
+      setMsg(S.admin.done);
+      load();
+    } catch (e) {
+      setMsg(errorMessage(e, S));
+    }
+  }
+
+  if (!st) {
+    return (
+      <section className="card">
+        <p className="muted">{S.common.loading}</p>
+      </section>
+    );
+  }
+  const usd = (n: number) => `$${n.toFixed(2)}`;
+  return (
+    <section className={`card protection ${st.matches_paused ? "is-paused" : ""}`}>
+      <h2>{S.admin.protection}</h2>
+      <p className="muted small">{S.admin.protectionHint}</p>
+      <div className="row-between">
+        <strong className={st.matches_paused ? "error" : "ok-text"}>{st.matches_paused ? S.admin.paused : S.admin.running}</strong>
+        <button className={`btn ${st.matches_paused ? "primary" : "danger"}`} onClick={() => save({ matches_paused: !st.matches_paused })}>
+          {st.matches_paused ? S.admin.resume : S.admin.pause}
+        </button>
+      </div>
+      <dl className="stats">
+        <Stat label={S.admin.spentToday} value={`${usd(st.spent_today_usd)} / ${usd(st.daily_budget_usd)}`} highlight={st.spent_today_usd >= st.daily_budget_usd} />
+        <Stat label={S.admin.spentMonth} value={`${usd(st.spent_month_usd)} / ${usd(st.monthly_budget_usd)}`} highlight={st.spent_month_usd >= st.monthly_budget_usd} />
+        <Stat label={S.admin.runningNow} value={st.running_matches} />
+        <Stat label={S.admin.canStart} value={st.startable_matches} />
+      </dl>
+      <form
+        className="budget-form"
+        onSubmit={(e) => {
+          e.preventDefault();
+          void save({ daily_budget_usd: Number(daily), monthly_budget_usd: Number(monthly) });
+        }}
+      >
+        <label>
+          {S.admin.dailyBudget}
+          <input type="number" min="0" step="0.5" value={daily} onChange={(e) => setDaily(e.target.value)} dir="ltr" />
+        </label>
+        <label>
+          {S.admin.monthlyBudget}
+          <input type="number" min="0" step="1" value={monthly} onChange={(e) => setMonthly(e.target.value)} dir="ltr" />
+        </label>
+        <button className="btn primary" type="submit">
+          {S.admin.saveBudgets}
+        </button>
+      </form>
+      {msg && <p className="small">{msg}</p>}
+      <p className="muted small">💡 {S.admin.consoleTip}</p>
+    </section>
   );
 }

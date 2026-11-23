@@ -96,6 +96,17 @@ export interface AdminStats {
   credits_charged_total: number;
 }
 
+export interface AdminSettings {
+  matches_paused: boolean;
+  daily_budget_usd: number;
+  monthly_budget_usd: number;
+  spent_today_usd: number;
+  spent_month_usd: number;
+  running_matches: number;
+  reserved_usd: number;
+  startable_matches: number;
+}
+
 export interface AdminAppeal {
   id: string;
   turn_id: string;
@@ -147,6 +158,9 @@ export const api = {
   appeal: (turn_id: string, reason: string) => request<{ appeal: { id: string } }>("POST", "/appeals", { turn_id, reason }),
   admin: {
     stats: () => request<AdminStats>("GET", "/admin/stats"),
+    settings: () => request<AdminSettings>("GET", "/admin/settings"),
+    saveSettings: (s: Partial<Pick<AdminSettings, "matches_paused" | "daily_budget_usd" | "monthly_budget_usd">>) =>
+      request<{ ok: true }>("POST", "/admin/settings", s),
     grant: (user_id: string, amount: number, note: string) => request<{ ok: true }>("POST", "/admin/credits", { user_id, amount, note }),
     appeals: () => request<{ appeals: AdminAppeal[] }>("GET", "/admin/appeals?status=open"),
     resolveAppeal: (id: string, status: "accepted" | "rejected", admin_note: string) =>

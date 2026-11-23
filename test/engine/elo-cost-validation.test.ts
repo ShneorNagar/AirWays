@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { CONTENT_MAX_CHARS, PROMPT_MAX_CHARS } from "../../src/engine/config";
+import { CONTENT_MAX_CHARS, MATCH_PRICE_CREDITS, PROMPT_MAX_CHARS } from "../../src/engine/config";
 import {
   assertPricesConfigured,
   callCostUsdMicro,
@@ -45,23 +45,26 @@ describe("cost", () => {
     expect(() => assertPricesConfigured()).not.toThrow();
   });
   it("hold with fixed prices (input 1, output 5)", () => {
-    // player call: 12000*1 + 500*5 = 14500; judge: 4000*1 + 200*5 = 5000
-    // per turn = 2*14500 + 5000 = 34000 micro; max = 3*2*10*34000 = 2,040,000 micro = $2.04
-    expect(computeMaxMatchUsdMicro(fixed)).toBe(2_040_000);
-    // credits = ceil(2.04 * 1.2 / 0.01) = ceil(244.8) = 245
-    expect(computeHoldCredits(fixed)).toBe(245);
+    // player call: 20000*1 + 500*5 = 22500; judge: 4000*1 + 200*5 = 5000
+    // per turn = 2*22500 + 5000 = 50000 micro; max = 3*2*10*50000 = 3,000,000 micro = $3
+    expect(computeMaxMatchUsdMicro(fixed)).toBe(3_000_000);
+    // credits = ceil(3 * 1.2 / 0.01) = 360
+    expect(computeHoldCredits(fixed)).toBe(360);
   });
   it("hold with the configured haiku-5-5 prices", () => {
-    // player: 12000*0.1 + 500*0.5 = 1450; judge: 400 + 100 = 500; per turn 3400; max 204000 micro
-    expect(computeMaxMatchUsdMicro()).toBe(204_000);
-    expect(computeHoldCredits()).toBe(25); // ceil(24.48)
+    // player: 20000*0.1 + 500*0.5 = 2250; judge: 400 + 100 = 500; per turn 5000; max 300000 micro
+    expect(computeMaxMatchUsdMicro()).toBe(300_000);
+    expect(computeHoldCredits()).toBe(36); // ceil(36.0)
   });
-  it("charge = ceil(actual * 1.2 / 0.01)", () => {
-    expect(computeChargeCredits(0)).toBe(0);
-    expect(computeChargeCredits(2000)).toBe(1); // 0.24 credits -> 1
-    expect(computeChargeCredits(100_000)).toBe(12); // $0.10 * 1.2 = 12 credits exactly
-    expect(computeChargeCredits(100_001)).toBe(13);
-    expect(computeChargeCredits(250_000)).toBe(30); // exact, no float overshoot
+  it("charge = cost + 20%, at least MATCH_PRICE_CREDITS, at most the hold", () => {
+    expect(MATCH_PRICE_CREDITS).toBe(10);
+    expect(computeChargeCredits(0, 36)).toBe(10); // minimum price
+    expect(computeChargeCredits(2000, 36)).toBe(10); // 0.24 credits → minimum
+    expect(computeChargeCredits(100_000, 36)).toBe(12); // $0.10 * 1.2 = 12 credits exactly
+    expect(computeChargeCredits(100_001, 36)).toBe(13);
+    expect(computeChargeCredits(250_000, 36)).toBe(30); // exact, no float overshoot
+    expect(computeChargeCredits(400_000, 36)).toBe(36); // capped at the hold
+    expect(computeChargeCredits(0, 5)).toBe(5); // never above the hold
   });
 });
 

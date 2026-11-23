@@ -39,13 +39,24 @@ export const PRICE_USD_PER_MTOK: Record<string, { input: number; output: number 
 };
 // The app must refuse to start a match if any price is NaN (see cost.ts assertPricesConfigured).
 
-// Upper bounds used only for computing the credit HOLD (section 9).
-export const MAX_INPUT_TOKENS_PLAYER_CALL = 12000;
+// Upper bounds used for the credit HOLD (section 9) and the per-match cost cap.
+// SPEC CHANGE (loss protection): 12000 → 20000. Hebrew transcripts by turn 10 can exceed 12K tokens.
+export const MAX_INPUT_TOKENS_PLAYER_CALL = 20000;
 export const MAX_INPUT_TOKENS_JUDGE_CALL = 4000;
 
 export const MARGIN = 0.2; // 20% on top of actual LLM cost
 export const CREDIT_USD = 0.01; // 1 credit = $0.01
-export const SIGNUP_BONUS_CREDITS = 300;
+// SPEC CHANGE (loss protection): 300 → 100 (= 10 matches at the minimum price).
+export const SIGNUP_BONUS_CREDITS = 100;
+
+// ---- Loss protection (not in the original spec) ----
+/** Minimum charge per match. Charge = min(hold, max(this, actual cost + MARGIN)). */
+export const MATCH_PRICE_CREDITS = 10;
+/** At most this many signup bonuses are granted per UTC day (protects against account farming). */
+export const MAX_SIGNUP_BONUSES_PER_DAY = 20;
+/** Default global LLM budgets; the admin can change them at runtime (settings table). */
+export const DEFAULT_DAILY_LLM_BUDGET_USD = 2;
+export const DEFAULT_MONTHLY_LLM_BUDGET_USD = 20;
 
 export const OPPONENTS_PER_VERSION = 10;
 export const MAX_ACTIVE_MATCHES = 5; // global concurrency cap

@@ -1,4 +1,4 @@
-import { computeHoldCredits } from "../engine/cost";
+import { MATCH_PRICE_CREDITS } from "../engine/config";
 import { newId, now } from "./db";
 
 export type LedgerType =
@@ -30,7 +30,7 @@ export function ledgerInsertStmt(
     .bind(newId(), e.userId, e.amount, e.type, e.matchId ?? null, e.note ?? null, now());
 }
 
-/** UI estimate: average charge of the last 50 completed matches; fallback hold/4. */
+/** UI estimate: average charge of the last 50 completed matches; fallback: the minimum match price. */
 export async function estimatedCreditsPerMatch(db: D1Database): Promise<number> {
   const row = await db
     .prepare(
@@ -38,5 +38,5 @@ export async function estimatedCreditsPerMatch(db: D1Database): Promise<number> 
     )
     .first<{ avg: number | null; n: number }>();
   if (row && row.n > 0 && row.avg !== null) return Math.ceil(row.avg);
-  return Math.ceil(computeHoldCredits() / 4);
+  return MATCH_PRICE_CREDITS;
 }

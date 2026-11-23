@@ -25,7 +25,7 @@ export function testEnv(): { env: Env; queue: FakeQueue } {
   return { env: { ...(env as unknown as Env), MATCH_QUEUE: queue as unknown as Queue<QueueMsg> }, queue };
 }
 
-const TABLES = ["appeals", "credit_ledger", "llm_calls", "turns", "channels", "rounds", "matches", "ratings", "versions", "sessions", "seasons"];
+const TABLES = ["settings", "appeals", "credit_ledger", "llm_calls", "turns", "channels", "rounds", "matches", "ratings", "versions", "sessions", "seasons"];
 
 export async function resetDb() {
   await env.DB.batch([

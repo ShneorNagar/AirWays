@@ -1,5 +1,6 @@
 import { env } from "cloudflare:workers";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { MAX_SIGNUP_BONUSES_PER_DAY, SIGNUP_BONUS_CREDITS } from "../../src/engine/config";
 import { GOOGLE_TOKENINFO_URL, GOOGLE_TOKEN_URL } from "../../src/worker/routes/auth";
 import { APP_URL, call, ledger, resetDb, testEnv } from "./helpers";
 
@@ -53,7 +54,7 @@ describe("Google OAuth", () => {
     const user = await env.DB.prepare("SELECT * FROM users WHERE google_sub = 'g-123'").first<{ id: string; display_name: string }>();
     expect(user!.display_name).toBe("נועה");
     const l = await ledger(user!.id);
-    expect(l).toEqual([{ type: "signup_bonus", amount: 300, match_id: null }]);
+    expect(l).toEqual([{ type: "signup_bonus", amount: SIGNUP_BONUS_CREDITS, match_id: null }]);
     const sessions = await env.DB.prepare("SELECT COUNT(*) AS n FROM sessions WHERE user_id = ?").bind(user!.id).first<{ n: number }>();
     expect(sessions!.n).toBe(2);
 
@@ -82,5 +83,19 @@ describe("Google OAuth", () => {
     expect((await login()).status).toBe(400);
     const n = await env.DB.prepare("SELECT COUNT(*) AS n FROM users WHERE is_bot = 0").first<{ n: number }>();
     expect(n!.n).toBe(0);
+  });
+
+  it("stops granting signup bonuses after the daily cap", async () => {
+    const ts = Date.now();
+    await env.DB.batch(
+      Array.from({ length: MAX_SIGNUP_BONUSES_PER_DAY }, (_, i) =>
+        env.DB.prepare("INSERT INTO credit_ledger (id, user_id, amount, type, created_at) VALUES (?, 'bot-guard', 1, 'signup_bonus', ?)").bind(`b${i}`, ts),
+      ),
+    );
+    mockGoogle(goodInfo);
+    expect((await login()).status).toBe(302);
+    const user = await env.DB.prepare("SELECT id FROM users WHERE google_sub = 'g-123'").first<{ id: string }>();
+    expect(user).not.toBeNull();
+    expect(await ledger(user!.id)).toEqual([]);
   });
 });

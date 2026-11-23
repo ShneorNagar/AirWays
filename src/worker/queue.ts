@@ -1,13 +1,13 @@
 import { runChannelTurn, type ChannelTurnResult } from "../engine/channel";
 import { ELO_K, ELO_START } from "../engine/config";
-import { assertPricesConfigured, callCostUsdMicro, computeChargeCredits, computeHoldCredits } from "../engine/cost";
+import { assertPricesConfigured, callCostUsdMicro, computeChargeCredits, computeHoldCredits, computeMaxMatchUsdMicro } from "../engine/cost";
 import { expectedScore } from "../engine/elo";
 import { AnthropicClient, type LLMClient, type UsageCallback } from "../engine/llm";
 import { evaluateMatch } from "../engine/match";
 import { evaluateRound } from "../engine/round";
 import { generateSecret } from "../engine/secret";
 import type { ChannelState, MatchResult, Side, TurnRecord } from "../engine/types";
-import { ledgerInsertStmt } from "./credits";
+import { budgetStatus } from "./budget";
 import {
   ensureRatingStmt,
   getMatch,
@@ -94,6 +94,13 @@ export async function handleStartMatch(env: Env, matchId: string): Promise<void>
     return;
   }
 
+  // Loss protection: kill switch + global budgets. The match stays pending; the cron retries later.
+  const budget = await budgetStatus(db);
+  if (budget.startableMatches < 1) {
+    log("budget_blocked", { matchId, paused: budget.settings.matchesPaused, todayMicro: budget.todayMicro, monthMicro: budget.monthMicro });
+    return;
+  }
+
   const payer = await db.prepare("SELECT is_bot FROM users WHERE id = ?").bind(match.payer_user_id).first<{ is_bot: number }>();
   const hold = payer?.is_bot ? 0 : computeHoldCredits();
   const ts = now();
@@ -158,11 +165,12 @@ interface StepData {
   turns: TurnRow[];
   versionA: VersionRow;
   versionB: VersionRow;
+  costSoFarMicro: number;
 }
 
 async function loadStep(db: D1Database, matchId: string, roundNo: number): Promise<StepData | null> {
   const roundSub = "(SELECT id FROM rounds WHERE match_id = ? AND round_no = ?)";
-  const [m, r, ch, t, v] = await db.batch<Record<string, unknown>>([
+  const [m, r, ch, t, v, cost] = await db.batch<Record<string, unknown>>([
     db.prepare("SELECT * FROM matches WHERE id = ?").bind(matchId),
     db.prepare("SELECT * FROM rounds WHERE match_id = ? AND round_no = ?").bind(matchId, roundNo),
     db.prepare(`SELECT * FROM channels WHERE round_id = ${roundSub}`).bind(matchId, roundNo),
@@ -172,6 +180,7 @@ async function loadStep(db: D1Database, matchId: string, roundNo: number): Promi
     db
       .prepare("SELECT v.* FROM versions v JOIN matches m ON v.id IN (m.version_a_id, m.version_b_id) WHERE m.id = ?")
       .bind(matchId),
+    db.prepare("SELECT COALESCE(SUM(cost_usd_micro), 0) AS total FROM llm_calls WHERE match_id = ?").bind(matchId),
   ]);
   const match = m!.results[0] as unknown as MatchRow | undefined;
   const round = r!.results[0] as unknown as RoundRow | undefined;
@@ -187,6 +196,7 @@ async function loadStep(db: D1Database, matchId: string, roundNo: number): Promi
     turns: t!.results as unknown as TurnRow[],
     versionA,
     versionB,
+    costSoFarMicro: (cost!.results[0] as { total: number }).total,
   };
 }
 
@@ -197,6 +207,13 @@ export async function handleStep(env: Env, msg: { matchId: string; round: number
   if (!data) return;
   const { match, round } = data;
   if (match.status !== "running" || match.current_round !== r || match.current_turn !== t) return; // stale/duplicate
+
+  // Loss protection: a match that already spent its worst-case budget ends now, scored on
+  // the rounds completed so far (the unfinished round counts as a draw).
+  if (data.costSoFarMicro >= computeMaxMatchUsdMicro()) {
+    await stopForCostCap(db, data, r, t);
+    return;
+  }
 
   const chRows: Record<Side, ChannelRow> = {
     a: data.channels.find((c) => c.attacker_side === "a")!,
@@ -315,6 +332,22 @@ export async function handleStep(env: Env, msg: { matchId: string; round: number
   if (next) await env.MATCH_QUEUE.send(next);
 }
 
+async function stopForCostCap(db: D1Database, data: StepData, r: number, t: number): Promise<void> {
+  const { match, round } = data;
+  const m = evaluateMatch(match.rounds_a, match.rounds_b, Number.MAX_SAFE_INTEGER);
+  const result: MatchResult = m.decided ? m.result : "draw";
+  const fin = await finalizeStmts(db, match, result, match.rounds_a, match.rounds_b, { r, t });
+  await db.batch([
+    db.prepare("UPDATE channels SET status = 'stopped' WHERE round_id = ? AND status = 'open'").bind(round.id),
+    db
+      .prepare("UPDATE rounds SET status = 'completed', winner = 'draw', end_turn = ?, end_reason = 'cost_cap' WHERE id = ? AND status = 'running'")
+      .bind(t - 1, round.id),
+    ...fin.stmts,
+  ]);
+  log("match_cost_cap", { matchId: match.id, round: r, turn: t, costUsdMicro: data.costSoFarMicro });
+  log("match_finalized", { matchId: match.id, result, chargedCredits: fin.charge, costUsdMicro: fin.actualMicro });
+}
+
 // ---------- finalize (spec 8.3) ----------
 
 async function finalizeStmts(
@@ -332,7 +365,7 @@ async function finalizeStmts(
   ]);
   const actualMicro = (sumRes!.results[0] as { total: number }).total;
   const payerIsBot = (payerRes!.results[0] as Pick<UserRow, "is_bot"> | undefined)?.is_bot === 1;
-  const charge = payerIsBot ? 0 : computeChargeCredits(actualMicro);
+  const charge = payerIsBot ? 0 : computeChargeCredits(actualMicro, match.hold_credits);
   const eloOf = (uid: string) => (ratingsRes!.results as { user_id: string; elo: number }[]).find((x) => x.user_id === uid)?.elo ?? ELO_START;
   const ra = eloOf(match.user_a_id);
   const rb = eloOf(match.user_b_id);

@@ -1,5 +1,6 @@
 import { ELO_START, MAX_ACTIVE_MATCHES, SEASON_DAYS } from "../engine/config";
 import { BOTS } from "./bots";
+import { budgetStatus } from "./budget";
 import { ensureRatingStmt, newId, now, type SeasonRow } from "./db";
 import type { Env, QueueMsg } from "./env";
 
@@ -60,8 +61,15 @@ export async function ensureSeason(env: Env, ts = now()): Promise<SeasonRow> {
 export async function startPendingMatches(env: Env): Promise<number> {
   const db = env.DB;
   const running = await db.prepare("SELECT COUNT(*) AS n FROM matches WHERE status = 'running'").first<{ n: number }>();
-  const slots = MAX_ACTIVE_MATCHES - (running?.n ?? 0);
-  if (slots <= 0) return 0;
+  // Loss protection: never start more matches than the global budgets can cover.
+  const budget = await budgetStatus(db);
+  const slots = Math.min(MAX_ACTIVE_MATCHES - (running?.n ?? 0), budget.startableMatches);
+  if (slots <= 0) {
+    if (budget.startableMatches <= 0) {
+      log("budget_blocked", { paused: budget.settings.matchesPaused, todayMicro: budget.todayMicro, monthMicro: budget.monthMicro });
+    }
+    return 0;
+  }
   const { results } = await db
     .prepare("SELECT id FROM matches WHERE status = 'pending' ORDER BY created_at ASC LIMIT ?")
     .bind(slots)

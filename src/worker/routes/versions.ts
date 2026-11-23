@@ -3,6 +3,7 @@ import { SUBMISSIONS_PER_DAY } from "../../engine/config";
 import { computeHoldCredits } from "../../engine/cost";
 import { validateVersion } from "../../engine/validation";
 import { csrf, readJson, requireUser, type AppEnv } from "../auth";
+import { getSettings } from "../budget";
 import { availableBalance } from "../credits";
 import { getActiveSeason, type VersionRow } from "../db";
 import { apiError } from "../errors";
@@ -38,6 +39,7 @@ app.post("/", csrf, requireUser, async (c) => {
   const db = c.env.DB;
   const body = await readJson(c);
   if (!body) return apiError(c, 400, "bad_request");
+  if ((await getSettings(db)).matchesPaused) return apiError(c, 503, "paused");
 
   const v = validateVersion({ defense_prompt: body.defense_prompt, attack_prompt: body.attack_prompt });
   if (!v.ok) return apiError(c, 422, "validation", { field: v.field, code: v.error_code });

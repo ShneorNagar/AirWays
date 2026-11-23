@@ -1,5 +1,6 @@
 import { Hono } from "hono";
 import { csrf, readJson, requireAdmin, type AppEnv } from "../auth";
+import { budgetStatus, setSettingStmt } from "../budget";
 import { ledgerInsertStmt } from "../credits";
 import { getActiveSeason, now, type AppealRow, type TurnRow } from "../db";
 import { apiError } from "../errors";
@@ -48,6 +49,41 @@ app.get("/stats", async (c) => {
     avg_cost_usd: costRow.avg_micro === null ? null : costRow.avg_micro / 1e6,
     credits_charged_total: costRow.charged,
   });
+});
+
+// Loss protection: spend overview, kill switch and budgets.
+app.get("/settings", async (c) => {
+  const b = await budgetStatus(c.env.DB);
+  return c.json({
+    matches_paused: b.settings.matchesPaused,
+    daily_budget_usd: b.settings.dailyBudgetUsd,
+    monthly_budget_usd: b.settings.monthlyBudgetUsd,
+    spent_today_usd: b.todayMicro / 1e6,
+    spent_month_usd: b.monthMicro / 1e6,
+    running_matches: b.runningMatches,
+    reserved_usd: b.reservedMicro / 1e6,
+    startable_matches: b.startableMatches,
+  });
+});
+
+app.post("/settings", csrf, async (c) => {
+  const body = await readJson(c);
+  if (!body) return apiError(c, 400, "bad_request");
+  const db = c.env.DB;
+  const stmts: D1PreparedStatement[] = [];
+  if (body.matches_paused !== undefined) {
+    if (typeof body.matches_paused !== "boolean") return apiError(c, 400, "bad_request");
+    stmts.push(setSettingStmt(db, "matches_paused", body.matches_paused ? "1" : "0"));
+  }
+  for (const key of ["daily_budget_usd", "monthly_budget_usd"] as const) {
+    if (body[key] === undefined) continue;
+    const v = body[key];
+    if (typeof v !== "number" || !Number.isFinite(v) || v < 0 || v > 100_000) return apiError(c, 400, "bad_request");
+    stmts.push(setSettingStmt(db, key, String(v)));
+  }
+  if (stmts.length === 0) return apiError(c, 400, "bad_request");
+  await db.batch(stmts);
+  return c.json({ ok: true });
 });
 
 app.post("/credits", csrf, async (c) => {

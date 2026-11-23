@@ -181,6 +181,13 @@ label { font-weight: 700; }
 .appeal-item input { margin-top: 8px; }
 .appeal-turn { margin: 8px 0; }
 .form-grid > * + * { margin-top: 8px; }
+.btn.danger { background: color-mix(in srgb, var(--bad) 20%, var(--card-2)); border-color: var(--bad); color: var(--text); }
+.ok-text { color: var(--ok); }
+.protection.is-paused { border-color: var(--bad); }
+.protection .stats { margin: 12px 0; }
+.budget-form { display: grid; grid-template-columns: 1fr; gap: 8px; align-items: end; }
+.budget-form label { display: grid; gap: 4px; font-weight: 600; font-size: 0.9rem; }
+@media (min-width: 720px) { .budget-form { grid-template-columns: 1fr 1fr auto; } }
 
 @media (min-width: 720px) {
   .main { padding: 24px; }
