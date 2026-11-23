@@ -5,18 +5,33 @@
   "type": "module",
   "scripts": {
     "test": "vitest run",
-    "typecheck": "tsc --noEmit",
+    "typecheck": "tsc --noEmit && tsc --noEmit -p tsconfig.worker.json",
     "validate-words": "tsx scripts/validate-words.ts",
-    "league": "tsx scripts/run-league.ts league/submissions.csv"
+    "league": "tsx scripts/run-league.ts league/submissions.csv",
+    "dev": "mkdir -p dist/client && wrangler dev --test-scheduled",
+    "db:migrate:local": "wrangler d1 migrations apply DB --local",
+    "db:migrate:remote": "wrangler d1 migrations apply DB --remote",
+    "deploy": "wrangler deploy",
+    "pretest": "mkdir -p dist/client"
   },
   "devDependencies": {
+    "@cloudflare/vitest-plugin": "1.9.0",
+    "@cloudflare/workers-types": "^5.20261123.1",
     "@types/node": "^22.0.0",
     "tsx": "^4.23.15",
     "typescript": "^5.9.3",
-    "vitest": "^5.1.1"
+    "vitest": "^4.1.12",
+    "wrangler": "4.166.0"
   },
   "dependencies": {
-    "csv-parse": "^7.0.3"
+    "csv-parse": "^7.0.3",
+    "hono": "4.13.21"
   },
-  "packageManager": "pnpm@10.28.0"
+  "packageManager": "pnpm@10.28.0",
+  "pnpm": {
+    "onlyBuiltDependencies": [
+      "esbuild",
+      "workerd"
+    ]
+  }
 }

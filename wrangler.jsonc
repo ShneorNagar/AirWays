@@ -1,0 +1,52 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "agent-wars",
+  "main": "src/worker/index.ts",
+  // Must not be newer than the workerd version bundled with wrangler.
+  "compatibility_date": "2026-11-19",
+  "observability": { "enabled": true },
+
+  // Static SPA (Vite build output, Phase 3). Only /api/* reaches the Worker first.
+  "assets": {
+    "directory": "./dist/client",
+    "binding": "ASSETS",
+    "not_found_handling": "single-page-application",
+    "run_worker_first": ["/api/*"]
+  },
+
+  "d1_databases": [
+    {
+      "binding": "DB",
+      "database_name": "agent-wars",
+      // Replace with the id printed by `wrangler d1 create agent-wars` (see README).
+      "database_id": "00000000-0000-0000-0000-000000000000",
+      "migrations_dir": "migrations"
+    }
+  ],
+
+  "queues": {
+    "producers": [{ "binding": "MATCH_QUEUE", "queue": "matches" }],
+    "consumers": [
+      {
+        "queue": "matches",
+        "max_batch_size": 1,
+        "max_concurrency": 5, // = MAX_ACTIVE_MATCHES in src/engine/config.ts
+        "max_retries": 5,
+        "dead_letter_queue": "matches-dlq"
+      },
+      {
+        "queue": "matches-dlq",
+        "max_batch_size": 1,
+        "max_retries": 5
+      }
+    ]
+  },
+
+  "triggers": { "crons": ["*/15 * * * *"] },
+
+  "vars": {
+    "APP_URL": "http://localhost:8787",
+    "GOOGLE_CLIENT_ID": "replace-me.apps.googleusercontent.com"
+  }
+  // Secrets (wrangler secret put / .dev.vars): ANTHROPIC_API_KEY, GOOGLE_CLIENT_SECRET
+}
