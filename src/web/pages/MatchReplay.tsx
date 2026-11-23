@@ -25,17 +25,22 @@ export default function MatchReplay() {
     if (!loggedIn) return;
     let timer: ReturnType<typeof setTimeout> | undefined;
     let cancelled = false;
+    let live = true; // keep polling until the match is known to be finished
     const load = async () => {
       try {
         const d = await api.match(id);
         if (cancelled) return;
         setData(d);
         setError(null);
-        if (d.status === "pending" || d.status === "running") timer = setTimeout(load, POLL_MS);
+        live = d.status === "pending" || d.status === "running";
       } catch (e) {
         if (cancelled) return;
-        setError(e instanceof ApiError && e.status === 404 ? S.errors.notFound : errorMessage(e, S));
+        const notFound = e instanceof ApiError && (e.status === 404 || e.status === 401 || e.status === 403);
+        setError(notFound ? S.errors.notFound : errorMessage(e, S));
+        // A transient failure (network, 5xx) must not stop live updates; a hard 4xx does.
+        if (notFound) live = false;
       }
+      if (!cancelled && live) timer = setTimeout(load, POLL_MS);
     };
     void load();
     return () => {
@@ -69,6 +74,7 @@ export default function MatchReplay() {
 
   return (
     <div className="stack">
+      {error && <p className="error small">{error}</p>}
       <header className="card match-head">
         <div className="players">
           <span className={`player ${data.result === "a" ? "winner" : ""}`}><bdi>{names.a}</bdi></span>

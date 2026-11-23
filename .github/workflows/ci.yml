@@ -1,0 +1,33 @@
+# Typecheck, tests, word-list validation and production build.
+# Runs on pull requests and on demand only (not on every push), to stay well inside
+# GitHub's free Actions minutes. Uses no secrets and makes no paid API calls:
+# all LLM calls in the tests are mocked.
+name: CI
+
+on:
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm typecheck
+      - run: pnpm validate-words
+      - run: pnpm test
+      - run: pnpm build
