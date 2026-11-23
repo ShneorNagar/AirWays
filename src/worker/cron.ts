@@ -98,6 +98,7 @@ export async function recoverStalledMatches(env: Env, ts = now()): Promise<numbe
 }
 
 export async function runCron(env: Env): Promise<void> {
+  await env.DB.prepare("DELETE FROM sessions WHERE expires_at <= ?").bind(now()).run();
   await ensureSeason(env);
   await recoverStalledMatches(env);
   await startPendingMatches(env);

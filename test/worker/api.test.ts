@@ -252,3 +252,40 @@ describe("unknown API routes", () => {
   });
 });
 
+
+describe("hardening", () => {
+  it("sets security headers and no-store on API responses", async () => {
+    const { env: e } = testEnv();
+    const res = await call(e, "/api/me");
+    expect(res.headers.get("x-content-type-options")).toBe("nosniff");
+    expect(res.headers.get("cache-control")).toBe("no-store");
+  });
+
+  it("rejects oversized bodies", async () => {
+    const { env: e } = testEnv();
+    await runCron(e);
+    const u = await createUser();
+    const res = await call(e, "/api/versions", {
+      method: "POST",
+      cookie: u.cookie,
+      body: { defense_prompt: "א".repeat(40_000), attack_prompt: VALID_ATTACK },
+    });
+    expect(res.status).toBe(413);
+  });
+
+  it("cron deletes expired sessions", async () => {
+    const { env: e } = testEnv();
+    const u = await createUser();
+    await env.DB.prepare("UPDATE sessions SET expires_at = 1 WHERE user_id = ?").bind(u.id).run();
+    await runCron(e);
+    const n = await env.DB.prepare("SELECT COUNT(*) AS n FROM sessions WHERE user_id = ?").bind(u.id).first<{ n: number }>();
+    expect(n!.n).toBe(0);
+  });
+});
+
+describe("worker entry module", () => {
+  it("exports only the default handler (workerd rejects other named exports)", async () => {
+    const mod = await import("../../src/worker/index");
+    expect(Object.keys(mod)).toEqual(["default"]);
+  });
+});

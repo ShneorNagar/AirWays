@@ -5,27 +5,36 @@
   "type": "module",
   "scripts": {
     "test": "vitest run",
-    "typecheck": "tsc --noEmit && tsc --noEmit -p tsconfig.worker.json",
+    "typecheck": "tsc --noEmit && tsc --noEmit -p tsconfig.worker.json && tsc --noEmit -p tsconfig.web.json",
     "validate-words": "tsx scripts/validate-words.ts",
     "league": "tsx scripts/run-league.ts league/submissions.csv",
     "dev": "mkdir -p dist/client && wrangler dev --test-scheduled",
     "db:migrate:local": "wrangler d1 migrations apply DB --local",
     "db:migrate:remote": "wrangler d1 migrations apply DB --remote",
     "deploy": "wrangler deploy",
-    "pretest": "mkdir -p dist/client"
+    "pretest": "mkdir -p dist/client",
+    "build": "vite build",
+    "dev:web": "vite"
   },
   "devDependencies": {
     "@cloudflare/vitest-plugin": "1.9.0",
     "@cloudflare/workers-types": "^5.20261123.1",
     "@types/node": "^22.0.0",
+    "@types/react": "18.3.31",
+    "@types/react-dom": "18.3.7",
+    "@vitejs/plugin-react": "6.3.0",
     "tsx": "^4.23.15",
     "typescript": "^5.9.3",
+    "vite": "8.3.8",
     "vitest": "^4.1.12",
     "wrangler": "4.166.0"
   },
   "dependencies": {
     "csv-parse": "^7.0.3",
-    "hono": "4.13.21"
+    "hono": "4.13.21",
+    "react": "18.3.1",
+    "react-dom": "18.3.1",
+    "react-router-dom": "6.30.6"
   },
   "packageManager": "pnpm@10.28.0",
   "pnpm": {

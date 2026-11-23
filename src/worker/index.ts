@@ -1,4 +1,7 @@
+// Main module: workerd only accepts handler exports here (no other named exports).
 import { Hono } from "hono";
+import { bodyLimit } from "hono/body-limit";
+import { secureHeaders } from "hono/secure-headers";
 import type { AppEnv } from "./auth";
 import { runCron } from "./cron";
 import type { Env, QueueMsg } from "./env";
@@ -12,7 +15,17 @@ import matches from "./routes/matches";
 import me from "./routes/me";
 import versions from "./routes/versions";
 
-export const app = new Hono<AppEnv>().basePath("/api");
+const app = new Hono<AppEnv>().basePath("/api");
+
+/** Largest legitimate body is a version submission (2 × 1500 chars of UTF-8). */
+const MAX_BODY_BYTES = 32 * 1024;
+
+app.use("*", secureHeaders({ crossOriginResourcePolicy: "same-origin" }));
+app.use("*", async (c, next) => {
+  await next();
+  c.header("Cache-Control", "no-store");
+});
+app.use("*", bodyLimit({ maxSize: MAX_BODY_BYTES, onError: (c) => apiError(c, 413, "bad_request") }));
 
 app.route("/auth", auth);
 app.route("/me", me);

@@ -4,7 +4,7 @@ A prompt-engineering game: every player submits a **Defender** prompt (guards a 
 **Attacker** prompt (tries to extract the opponent's secret). Matches are played automatically
 by the same LLM under identical limits.
 
-Status: **Phase 2 — Worker backend** done (Phase 1: engine + local league runner). See `agent-wars-spec.md` §16.
+Status: **Phases 1–4 implemented** (engine + league runner, Worker backend, frontend, admin/hardening). Production deploy needs the owner's Cloudflare account — see *Deploy*. Payments (Phase 5) are not started. See `agent-wars-spec.md` §16.
 
 ## Requirements
 
@@ -23,7 +23,9 @@ pnpm install
 | `pnpm typecheck` | `tsc --noEmit` (strict) |
 | `pnpm validate-words` | Checks `data/words.he.json` (≥ 2000 words, letters א-ת only, 2–8 letters, unique after normalization) |
 | `pnpm league` | Runs a round-robin league from `league/submissions.csv` |
-| `pnpm dev` | `wrangler dev` with local D1 + local queues (http://localhost:8787) |
+| `pnpm build` | Builds the React SPA into `dist/client` (served by the Worker as static assets) |
+| `pnpm dev` | `wrangler dev` with local D1 + local queues (http://localhost:8787) — serves the last `pnpm build` |
+| `pnpm dev:web` | Vite dev server with hot reload (http://localhost:5173), proxies `/api` to `pnpm dev` |
 | `pnpm db:migrate:local` / `pnpm db:migrate:remote` | Apply D1 migrations |
 | `pnpm deploy` | `wrangler deploy` |
 
@@ -52,8 +54,11 @@ pnpm install
 cp .dev.vars.example .dev.vars          # fill ANTHROPIC_API_KEY and GOOGLE_CLIENT_SECRET
 # set GOOGLE_CLIENT_ID in wrangler.jsonc "vars" (test OAuth client, redirect URI below)
 pnpm db:migrate:local
-pnpm dev
+pnpm build && pnpm dev          # full app on http://localhost:8787
+pnpm dev:web                    # optional, in a 2nd terminal: hot-reload UI on :5173
 ```
+
+Google login always returns to `APP_URL` (8787), so test the login flow on :8787.
 
 - Google OAuth redirect URI to register: `http://localhost:8787/api/auth/google/callback`
   (production: `{APP_URL}/api/auth/google/callback`).
@@ -86,11 +91,45 @@ then plays one turn of both channels (`step`) and enqueues the next one. Failed 
 retried by the queue; after 5 retries the message lands in `matches-dlq`, which marks the match
 `error` and releases the credit hold.
 
+## Deploy (Phase 4)
+
+1. Do the one-time Cloudflare setup above (D1, queues, secrets, remote migrations) and set
+   `APP_URL` to the production URL (e.g. `https://agent-wars.<you>.workers.dev`).
+2. Google Cloud Console → OAuth client (Web): authorized redirect URI
+   `{APP_URL}/api/auth/google/callback`. Put the client id in `GOOGLE_CLIENT_ID`.
+3. Cloudflare dashboard → Workers & Pages → *Create* → *Import a repository* (Workers Builds),
+   select this GitHub repo. Build command: `pnpm build`. Deploy command: `npx wrangler deploy`.
+   Every push to the production branch deploys.
+   (Manual alternative: `pnpm build && npx wrangler deploy`.)
+4. Log in once on the site, then make yourself admin:
+   `npx wrangler d1 execute DB --remote --command "UPDATE users SET is_admin = 1 WHERE email = 'you@example.com'"`
+5. The first cron run (≤ 15 min) creates season 1 and the bots. To start it right away, use the
+   dashboard's cron trigger test, or wait.
+6. Smoke test: submit a version, wait for the cron, open a match replay.
+
+### Free-plan capacity (checked against Cloudflare docs, Nov 2026)
+
+- Queues: 10,000 operations/day; a message costs ~3; a match is 1 + up to 30 messages →
+  roughly 100–300 matches/day (10–30 version submissions/day).
+- D1: 100,000 rows written/day; a match writes ≤ ~500 rows.
+- Workers: 100,000 requests/day, 10 ms CPU and 50 subrequests per invocation
+  (a match step uses ≤ ~16 subrequests; waiting on the LLM does not count as CPU).
+- Upgrade to Workers Paid when the queue limit becomes the bottleneck.
+
+### Security notes
+
+- API: same-origin + JSON-only POSTs (CSRF), HttpOnly/Secure/SameSite=Lax session cookie
+  (only its SHA-256 is stored), 32 KB body limit, `no-store`, standard security headers.
+- SPA: CSP and related headers in `src/web/public/_headers`.
+- Prompts of other users and secrets of unfinished matches never leave the server
+  (`src/worker/serializers.ts`, enforced by tests). Logs never contain prompts or secrets.
+
 ## Layout
 
 ```
 src/engine/   pure game logic (no Cloudflare imports) — runs in Node and Workers
 src/worker/   Cloudflare Worker: Hono API, queue consumer, cron, D1 access
+src/web/      React 18 SPA (Vite, react-router, plain CSS, Hebrew RTL)
 migrations/   D1 SQL migrations
 data/         Hebrew noun list for secrets
 scripts/      validate-words.ts, run-league.ts
